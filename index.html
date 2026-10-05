@@ -1,0 +1,870 @@
+```html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Checklist BST</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        /* Oculta scrollbars nativas mas mantém a rolagem */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        * {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            height: 100dvh; /* Changed from 100vh to 100dvh for better mobile browser support */
+            width: 100vw;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: #f8fafc;
+            overflow: hidden; /* Prevent body scroll, handle inside content */
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .scrollable-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-bottom: 160px;
+        }
+
+        .glass-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid #e2e8f0;
+            z-index: 30;
+        }
+
+        .modal-overlay {
+            display: none;
+            background-color: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(3px);
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .anim-fade-in {
+            animation: fadeIn 0.2s ease-out;
+        }
+        .anim-slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Estados dos Botões de Checklist */
+        .btn-check {
+            transition: all 0.2s ease;
+        }
+        .btn-active-sim {
+            background-color: #10b981 !important;
+            color: white !important;
+            border-color: #10b981 !important;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+        }
+        .btn-active-nao {
+            background-color: #f43f5e !important;
+            color: white !important;
+            border-color: #f43f5e !important;
+            box-shadow: 0 4px 6px -1px rgba(244, 63, 94, 0.2);
+        }
+
+        /* Carousel Styles for Checklists */
+        .carousel-viewport {
+            width: 100%;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        .carousel-track {
+            display: flex;
+            height: 100%;
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .carousel-slide {
+            flex: 0 0 100%;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            /* Respiro generoso (220px) para garantir acesso ao último item acima da barra fixa em tablets/mobile */
+            padding-bottom: 220px; 
+        }
+        
+        .tutor-indicator {
+            transition: all 0.2s ease;
+        }
+        .tutor-indicator.active {
+            background-color: #0f766e;
+            width: 24px;
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+
+    <!-- TELA 1: HISTÓRICO -->
+    <div id="screen-history" class="screen active">
+        <header class="glass-header px-4 py-4 sticky top-0 flex justify-between items-center shadow-sm">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800 tracking-tight">Checklist BST</h1>
+                <p class="text-xs text-slate-500 font-medium mt-0.5">Histórico de Aplicações</p>
+            </div>
+            <button onclick="navTo('settings')" class="p-2 rounded-full bg-slate-100 text-slate-600 active:bg-slate-200 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+        </header>
+        <div id="history-list" class="scrollable-content p-4 space-y-3 bg-slate-50">
+            <!-- Renderizado via JS -->
+        </div>
+        <!-- FAB Add -->
+        <button onclick="openModal('modal-new-record')" class="fixed bottom-6 right-6 w-14 h-14 bg-teal-600 rounded-full shadow-xl flex items-center justify-center text-white active:bg-teal-700 transition-transform active:scale-95 z-20">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- TELA 2: CHECKLIST ATIVO (CARROSSEL) -->
+    <div id="screen-checklist" class="screen">
+        <header class="glass-header px-4 py-3 flex flex-col gap-2">
+            <div class="flex items-center gap-3">
+                <button onclick="handleAndroidBack()" class="p-2 -ml-2 rounded-full text-slate-600 active:bg-slate-100">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                    </svg>
+                </button>
+                <div class="flex-1 flex justify-between items-center">
+                    <div>
+                        <h1 class="text-lg font-bold text-slate-800">Avaliação BST</h1>
+                        <p id="checklist-activity" class="text-xs text-slate-500 font-medium"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Controles de Navegação (Abas/Carrossel) -->
+            <div class="flex items-center justify-between mt-1">
+                <button onclick="prevTutor()" class="p-2 text-slate-400 active:text-slate-800 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                </button>
+                <div class="flex-1 text-center">
+                    <p id="current-tutor-name" class="font-bold text-teal-700 text-sm tracking-wide"></p>
+                    <div id="tutor-indicators" class="flex justify-center gap-1.5 mt-1.5">
+                        <!-- Dots gerados via JS -->
+                    </div>
+                </div>
+                <button onclick="nextTutor()" class="p-2 text-slate-400 active:text-slate-800 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Viewport do Carrossel de Checklists -->
+        <div class="carousel-viewport" id="carousel-viewport">
+            <div class="carousel-track" id="carousel-track">
+                <!-- Slides gerados via JS -->
+            </div>
+        </div>
+
+        <!-- Barra Inferior (Fixed) -->
+        <div class="absolute bottom-0 left-0 w-full p-4 bg-white border-t border-slate-200 z-40 pb-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div class="flex items-center justify-between mb-3 px-1">
+                <span class="text-xs font-semibold text-slate-500">Progresso Geral:</span>
+                <span id="overall-progress" class="text-xs font-bold text-teal-600">0%</span>
+            </div>
+            <button onclick="saveChecklist()" id="btn-save-checklist" class="w-full bg-slate-200 text-slate-500 font-bold py-3.5 rounded-xl transition-all duration-300">
+                Salvar Avaliação
+            </button>
+        </div>
+    </div>
+
+    <!-- TELA 3: CONFIGURAÇÕES (TEMPLATE) -->
+    <div id="screen-settings" class="screen">
+        <header class="glass-header px-4 py-4 sticky top-0 flex items-center gap-3 shadow-sm">
+            <button onclick="navTo('history')" class="p-2 -ml-2 rounded-full text-slate-600 active:bg-slate-100">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+            </button>
+            <div>
+                <h1 class="text-lg font-bold text-slate-800">Modelo do Checklist</h1>
+                <p class="text-xs text-slate-500 font-medium">Editar itens do preset</p>
+            </div>
+        </header>
+        <div id="settings-content" class="scrollable-content p-4 space-y-6 bg-slate-50">
+            <!-- Renderizado via JS -->
+        </div>
+    </div>
+
+    <!-- MODAL: NOVO REGISTRO -->
+    <div id="modal-new-record" class="modal-overlay fixed inset-0 z-50 items-end sm:items-center justify-center anim-fade-in" onclick="handleOutsideClick(event, 'modal-new-record')">
+        <div class="bg-white w-full sm:w-96 rounded-t-3xl sm:rounded-2xl p-6 anim-slide-up shadow-2xl flex flex-col max-h-[90vh]" onclick="event.stopPropagation()">
+            <h2 class="text-xl font-bold text-slate-800 mb-1">Novo Treinamento</h2>
+            <p class="text-xs text-slate-500 mb-5">Adicione uma ou mais tutoras para iniciar.</p>
+            
+            <div class="space-y-4 overflow-y-auto pr-2 pb-2" style="max-height: 50vh;">
+                <div>
+                    <div class="flex justify-between items-end mb-1">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Tutoras (Treinandas)</label>
+                        <button onclick="addTutorInput()" class="text-teal-600 text-xs font-bold flex items-center gap-1 bg-teal-50 px-2 py-1 rounded-md active:bg-teal-100">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                            Adicionar
+                        </button>
+                    </div>
+                    <div id="tutors-input-container" class="space-y-2">
+                        <!-- Inputs de tutoras dinâmicos -->
+                        <div class="flex gap-2 tutor-input-row">
+                            <div class="w-8 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-400">1</div>
+                            <input type="text" class="input-tutora flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-teal-500 transition-colors" placeholder="Nome da tutora">
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Atividade/App</label>
+                    <input type="text" id="input-atividade" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-teal-500 transition-colors" placeholder="Ex: Leitura">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Avaliador</label>
+                    <input type="text" id="input-avaliador" value="Ueslei de Jesus Alves" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-teal-500 transition-colors">
+                </div>
+            </div>
+            
+            <div class="flex gap-3 mt-6 pt-2 border-t border-slate-100">
+                <button onclick="closeModal('modal-new-record')" class="flex-1 bg-slate-100 text-slate-700 font-bold py-3 rounded-xl active:bg-slate-200 transition-colors">Cancelar</button>
+                <button onclick="startChecklist()" class="flex-1 bg-teal-600 text-white font-bold py-3 rounded-xl active:bg-teal-700 transition-colors">Iniciar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMAÇÃO GLOBAL -->
+    <div id="modal-confirm" class="modal-overlay fixed inset-0 z-[60] items-center justify-center anim-fade-in">
+        <div class="bg-white w-10/12 max-w-sm rounded-2xl p-6 anim-slide-up shadow-2xl text-center">
+            <h2 id="confirm-title" class="text-lg font-bold text-slate-800 mb-2">Atenção</h2>
+            <p id="confirm-msg" class="text-sm text-slate-600 mb-6"></p>
+            <div class="flex gap-3">
+                <button onclick="closeModal('modal-confirm')" class="flex-1 bg-slate-100 text-slate-700 font-bold py-2.5 rounded-xl active:bg-slate-200 transition-colors">Cancelar</button>
+                <button id="btn-confirm-action" class="flex-1 bg-rose-600 text-white font-bold py-2.5 rounded-xl active:bg-rose-700 transition-colors">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDITAR/ADD ITEM DO TEMPLATE -->
+    <div id="modal-edit-item" class="modal-overlay fixed inset-0 z-50 items-center justify-center anim-fade-in" onclick="handleOutsideClick(event, 'modal-edit-item')">
+        <div class="bg-white w-11/12 max-w-sm rounded-2xl p-6 anim-slide-up shadow-2xl" onclick="event.stopPropagation()">
+            <h2 id="edit-item-title" class="text-lg font-bold text-slate-800 mb-4">Item</h2>
+            <div>
+                <textarea id="input-item-text" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-800 outline-none focus:border-teal-500 transition-colors resize-none" placeholder="Descrição do comportamento observável..."></textarea>
+            </div>
+            <input type="hidden" id="edit-item-section">
+            <input type="hidden" id="edit-item-index">
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeModal('modal-edit-item')" class="flex-1 bg-slate-100 text-slate-700 font-bold py-3 rounded-xl active:bg-slate-200 transition-colors">Cancelar</button>
+                <button onclick="saveTemplateItem()" class="flex-1 bg-teal-600 text-white font-bold py-3 rounded-xl active:bg-teal-700 transition-colors">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ALERTA SIMPLES -->
+    <div id="modal-alert" class="modal-overlay fixed inset-0 z-[70] items-center justify-center anim-fade-in">
+        <div class="bg-white w-10/12 max-w-sm rounded-2xl p-6 anim-slide-up shadow-2xl text-center">
+            <div class="mx-auto w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+            <h2 class="text-lg font-bold text-slate-800 mb-2">Aviso</h2>
+            <p id="alert-msg" class="text-sm text-slate-600 mb-6"></p>
+            <button onclick="closeModal('modal-alert')" class="w-full bg-slate-800 text-white font-bold py-3 rounded-xl active:bg-slate-900 transition-colors">Entendi</button>
+        </div>
+    </div>
+
+    <script>
+        // Preset estrito exigido
+        const DEFAULT_TEMPLATE = {
+            "sec1": { title: "Instrução", items: [
+                "Explica o objetivo da atividade de forma concisa e sem ambiguidades.",
+                "Apresenta o Estímulo Discriminativo (SD) exato do dia (comando único).",
+                "Delimita a regra de latência / Time Delay (3 a 5 segundos de espera).",
+                "Demonstra a Ficha de Missão com os papéis e critérios definidos."
+            ]},
+            "sec2": { title: "Modelagem", items: [
+                "Modela a emissão clara do SD mantendo as mãos fora da área de resposta.",
+                "Demonstra a postura corporal neutra e contagem silenciosa da latência.",
+                "Executa a hierarquia exata de dicas (gestual/ecóica) sem fornecer resposta direta.",
+                "Modela a consequência diferenciada: elogio efusivo vs. neutro (com dica)."
+            ]},
+            "sec3": { title: "Ensaio Comportamental", items: [
+                "A tutora aplica a tentativa completa em situação simulada.",
+                "Respeita o Time Delay de 3s antes de intervir quando o aprendiz hesita.",
+                "Bloqueia respostas por tentativa e erro (chutes) com dica imediata.",
+                "Conduz a rotina física de remediação (Copy-Cover-Compare) ao final."
+            ]},
+            "sec4": { title: "Feedback", items: [
+                "Identifica e elogia comportamentos corretos emitidos durante o ensaio.",
+                "Aponta desvios imediatamente de forma descritiva e não punitiva.",
+                "Solicita a repetição imediata do passo corrigido até atingir 100% precisão.",
+                "Valida a autonomia da tutora para aplicação direta com o colega."
+            ]}
+        };
+
+        // Estado da Aplicação
+        let appState = {
+            currentScreen: 'history',
+            template: null,
+            history: [],
+            activeSession: null,
+            currentTutorIndex: 0
+        };
+
+        let confirmCallback = null;
+
+        // Boot
+        function init() {
+            const savedTemplate = localStorage.getItem('bst_template');
+            appState.template = savedTemplate ? JSON.parse(savedTemplate) : JSON.parse(JSON.stringify(DEFAULT_TEMPLATE));
+            
+            const savedHistory = localStorage.getItem('bst_history');
+            appState.history = savedHistory ? JSON.parse(savedHistory) : [];
+
+            renderHistory();
+            setupSwipeGestures();
+        }
+
+        // Navegação de Telas
+        function navTo(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(`screen-${screenId}`).classList.add('active');
+            appState.currentScreen = screenId;
+
+            if (screenId === 'history') renderHistory();
+            if (screenId === 'settings') renderSettings();
+        }
+
+        // Helpers de Modais
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+            if(modalId === 'modal-new-record') {
+                resetNewRecordModal();
+            }
+        }
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+        function handleOutsideClick(event, modalId) {
+            if (event.target.id === modalId) closeModal(modalId);
+        }
+        
+        function showAlert(msg) {
+            document.getElementById('alert-msg').innerText = msg;
+            openModal('modal-alert');
+        }
+
+        function showConfirm(title, msg, onConfirm) {
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-msg').innerText = msg;
+            confirmCallback = onConfirm;
+            openModal('modal-confirm');
+        }
+        document.getElementById('btn-confirm-action').addEventListener('click', () => {
+            if(confirmCallback) confirmCallback();
+            closeModal('modal-confirm');
+        });
+
+        function renderHistory() {
+            const container = document.getElementById('history-list');
+            container.innerHTML = '';
+
+            if (appState.history.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-[60vh] text-slate-400">
+                        <svg class="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p class="text-sm font-medium">Nenhum registro encontrado</p>
+                    </div>`;
+                return;
+            }
+
+            const sorted = [...appState.history].sort((a, b) => b.id - a.id);
+
+            sorted.forEach(record => {
+                const date = new Date(record.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute:'2-digit' });
+                
+                let scoreColor = 'text-teal-700 bg-teal-100 border-teal-200';
+                if(record.score < 75) scoreColor = 'text-amber-700 bg-amber-100 border-amber-200';
+                if(record.score < 50) scoreColor = 'text-rose-700 bg-rose-100 border-rose-200';
+
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between";
+                card.innerHTML = `
+                    <div class="flex-1 truncate pr-3">
+                        <h3 class="font-bold text-slate-800 text-base truncate">${record.tutora}</h3>
+                        <div class="flex items-center text-xs text-slate-500 mt-1 gap-2 truncate">
+                            <span class="flex-shrink-0 font-medium">${date}</span>
+                            <span class="w-1 h-1 rounded-full bg-slate-300 flex-shrink-0"></span>
+                            <span class="truncate">${record.atividade}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="font-bold text-sm px-2.5 py-1.5 rounded-lg border ${scoreColor}">
+                            ${record.score}%
+                        </div>
+                        <button onclick="deleteRecord(${record.id})" class="p-2 text-slate-300 active:text-rose-500 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function deleteRecord(id) {
+            showConfirm("Excluir Registro", "Tem certeza que deseja apagar este checklist? Esta ação não pode ser desfeita.", () => {
+                appState.history = appState.history.filter(r => r.id !== id);
+                localStorage.setItem('bst_history', JSON.stringify(appState.history));
+                renderHistory();
+            });
+        }
+
+        function resetNewRecordModal() {
+            const container = document.getElementById('tutors-input-container');
+            container.innerHTML = `
+                <div class="flex gap-2 tutor-input-row">
+                    <div class="w-8 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-400">1</div>
+                    <input type="text" class="input-tutora flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-teal-500 transition-colors" placeholder="Nome da tutora 1">
+                </div>
+            `;
+            document.getElementById('input-atividade').value = '';
+        }
+
+        function addTutorInput() {
+            const container = document.getElementById('tutors-input-container');
+            const rowCount = container.querySelectorAll('.tutor-input-row').length + 1;
+            
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 tutor-input-row anim-slide-up';
+            div.innerHTML = `
+                <div class="w-8 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-400">${rowCount}</div>
+                <input type="text" class="input-tutora flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-teal-500 transition-colors" placeholder="Nome da tutora ${rowCount}">
+                <button onclick="this.parentElement.remove(); updateTutorNumbers();" class="w-10 h-10 bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center active:bg-rose-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        function updateTutorNumbers() {
+            const rows = document.querySelectorAll('.tutor-input-row');
+            rows.forEach((row, index) => {
+                row.querySelector('div').innerText = index + 1;
+                row.querySelector('input').placeholder = `Nome da tutora ${index + 1}`;
+            });
+        }
+
+        function startChecklist() {
+            const inputs = document.querySelectorAll('.input-tutora');
+            const atividade = document.getElementById('input-atividade').value.trim();
+            const avaliador = document.getElementById('input-avaliador').value.trim();
+
+            let validTutors = [];
+            inputs.forEach(inp => {
+                if(inp.value.trim() !== '') validTutors.push({ name: inp.value.trim(), answers: {} });
+            });
+
+            if (validTutors.length === 0) {
+                showAlert("Adicione pelo menos uma tutora com nome válido.");
+                return;
+            }
+            if (!atividade || !avaliador) {
+                showAlert("Preencha atividade e avaliador.");
+                return;
+            }
+
+            // Conta total de perguntas no template atual para validação posterior
+            let totalQuestions = 0;
+            Object.keys(appState.template).forEach(secKey => {
+                totalQuestions += appState.template[secKey].items.length;
+            });
+
+            if (totalQuestions === 0) {
+                showAlert("O template está vazio. Edite o preset nas configurações.");
+                return;
+            }
+
+            appState.activeSession = {
+                timestamp: Date.now(),
+                atividade,
+                avaliador,
+                tutors: validTutors,
+                totalQuestions: totalQuestions
+            };
+            appState.currentTutorIndex = 0;
+
+            document.getElementById('checklist-activity').innerText = atividade;
+            
+            closeModal('modal-new-record');
+            buildCarouselUI();
+            updateCarouselView();
+            navTo('checklist');
+        }
+
+        function buildCarouselUI() {
+            const track = document.getElementById('carousel-track');
+            track.innerHTML = '';
+            
+            appState.activeSession.tutors.forEach((tutor, tIndex) => {
+                const slide = document.createElement('div');
+                slide.className = 'carousel-slide p-4 space-y-5';
+                
+                // Gera o conteúdo do checklist baseado no template
+                Object.keys(appState.template).forEach((secKey, sIndex) => {
+                    const sec = appState.template[secKey];
+                    if(sec.items.length === 0) return;
+
+                    const sectionDiv = document.createElement('div');
+                    sectionDiv.className = 'bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm';
+                    
+                    let itemsHtml = '';
+                    sec.items.forEach((itemText, iIndex) => {
+                        const qId = `${secKey}_${iIndex}`;
+                        itemsHtml += `
+                            <div class="p-4 border-b border-slate-100 last:border-0">
+                                <p class="text-sm text-slate-700 font-medium leading-relaxed mb-3">
+                                    <span class="text-slate-400 font-bold mr-1">${sIndex+1}.${iIndex+1}</span> ${itemText}
+                                </p>
+                                <div class="flex gap-3">
+                                    <button id="btn_${tIndex}_sim_${qId}" onclick="answerItem(${tIndex}, '${qId}', 'SIM')" class="btn-check flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-400 active:bg-slate-50">SIM</button>
+                                    <button id="btn_${tIndex}_nao_${qId}" onclick="answerItem(${tIndex}, '${qId}', 'NÃO')" class="btn-check flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-400 active:bg-slate-50">NÃO</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    sectionDiv.innerHTML = `
+                        <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center gap-3">
+                            <span class="bg-teal-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${sIndex+1}</span>
+                            <h2 class="font-bold text-slate-800 text-sm uppercase tracking-wider">${sec.title}</h2>
+                        </div>
+                        <div>${itemsHtml}</div>
+                    `;
+                    slide.appendChild(sectionDiv);
+                });
+
+                track.appendChild(slide);
+            });
+        }
+
+        function answerItem(tutorIndex, qId, answer) {
+            appState.activeSession.tutors[tutorIndex].answers[qId] = answer;
+            
+            const btnSim = document.getElementById(`btn_${tutorIndex}_sim_${qId}`);
+            const btnNao = document.getElementById(`btn_${tutorIndex}_nao_${qId}`);
+            
+            btnSim.classList.remove('btn-active-sim');
+            btnNao.classList.remove('btn-active-nao');
+
+            if (answer === 'SIM') btnSim.classList.add('btn-active-sim');
+            if (answer === 'NÃO') btnNao.classList.add('btn-active-nao');
+
+            validateProgress();
+        }
+
+        function validateProgress() {
+            let totalAnsweredAll = 0;
+            let reqTotal = appState.activeSession.totalQuestions * appState.activeSession.tutors.length;
+
+            appState.activeSession.tutors.forEach(tutor => {
+                totalAnsweredAll += Object.keys(tutor.answers).length;
+            });
+
+            const percent = Math.round((totalAnsweredAll / reqTotal) * 100);
+            document.getElementById('overall-progress').innerText = `${percent}%`;
+
+            const btnSave = document.getElementById('btn-save-checklist');
+            if (percent === 100) {
+                btnSave.classList.remove('bg-slate-200', 'text-slate-500');
+                btnSave.classList.add('bg-slate-800', 'text-white', 'shadow-lg');
+            } else {
+                btnSave.classList.add('bg-slate-200', 'text-slate-500');
+                btnSave.classList.remove('bg-slate-800', 'text-white', 'shadow-lg');
+            }
+        }
+
+        function updateCarouselView() {
+            const track = document.getElementById('carousel-track');
+            const percentX = appState.currentTutorIndex * -100;
+            track.style.transform = `translateX(${percentX}%)`;
+            
+            const currTutor = appState.activeSession.tutors[appState.currentTutorIndex];
+            document.getElementById('current-tutor-name').innerText = currTutor.name.toUpperCase();
+
+            // Atualiza Dots
+            const dotsContainer = document.getElementById('tutor-indicators');
+            dotsContainer.innerHTML = '';
+            if(appState.activeSession.tutors.length > 1) {
+                appState.activeSession.tutors.forEach((_, idx) => {
+                    const dot = document.createElement('div');
+                    dot.className = `tutor-indicator h-1.5 rounded-full ${idx === appState.currentTutorIndex ? 'active' : 'w-1.5 bg-slate-300'}`;
+                    dotsContainer.appendChild(dot);
+                });
+            }
+        }
+
+        function prevTutor() {
+            if (appState.currentTutorIndex > 0) {
+                appState.currentTutorIndex--;
+                updateCarouselView();
+            }
+        }
+
+        function nextTutor() {
+            if (appState.currentTutorIndex < appState.activeSession.tutors.length - 1) {
+                appState.currentTutorIndex++;
+                updateCarouselView();
+            }
+        }
+
+        // Lógica de Swipe Touch
+        let touchstartX = 0;
+        let touchendX = 0;
+        
+        function setupSwipeGestures() {
+            const viewport = document.getElementById('carousel-viewport');
+            viewport.addEventListener('touchstart', e => {
+                touchstartX = e.changedTouches[0].screenX;
+            }, {passive: true});
+
+            viewport.addEventListener('touchend', e => {
+                touchendX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, {passive: true});
+        }
+
+        function handleSwipe() {
+            const threshold = 50; // mínimo de px arrastados para considerar swipe
+            if (touchendX < touchstartX - threshold) {
+                nextTutor();
+            }
+            if (touchendX > touchstartX + threshold) {
+                prevTutor();
+            }
+        }
+
+        function saveChecklist() {
+            let reqTotal = appState.activeSession.totalQuestions * appState.activeSession.tutors.length;
+            let answeredTotal = 0;
+            
+            appState.activeSession.tutors.forEach(tutor => {
+                answeredTotal += Object.keys(tutor.answers).length;
+            });
+
+            if (answeredTotal < reqTotal) {
+                showAlert(`Preencha todos os itens de todas as tutoras (${appState.activeSession.tutors.length}). Deslize para os lados para verificar.`);
+                return;
+            }
+
+            // Salva cada tutora como um registro individual no histórico
+            const baseTimestamp = appState.activeSession.timestamp;
+            
+            appState.activeSession.tutors.forEach((tutor, idx) => {
+                let simCount = 0;
+                Object.values(tutor.answers).forEach(ans => {
+                    if (ans === 'SIM') simCount++;
+                });
+                
+                const score = Math.round((simCount / appState.activeSession.totalQuestions) * 100);
+                
+                const record = {
+                    id: baseTimestamp + idx, // IDs únicos
+                    timestamp: baseTimestamp,
+                    tutora: tutor.name,
+                    atividade: appState.activeSession.atividade,
+                    avaliador: appState.activeSession.avaliador,
+                    answers: tutor.answers,
+                    score: score
+                };
+                appState.history.push(record);
+            });
+
+            localStorage.setItem('bst_history', JSON.stringify(appState.history));
+            
+            appState.activeSession = null;
+            document.getElementById('overall-progress').innerText = '0%';
+            document.getElementById('btn-save-checklist').className = 'w-full bg-slate-200 text-slate-500 font-bold py-3.5 rounded-xl transition-all duration-300';
+            
+            navTo('history');
+        }
+
+        function renderSettings() {
+            const container = document.getElementById('settings-content');
+            container.innerHTML = '';
+
+            Object.keys(appState.template).forEach((secKey) => {
+                const sec = appState.template[secKey];
+                
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'mb-6';
+                
+                let itemsHtml = '';
+                sec.items.forEach((itemText, iIndex) => {
+                    itemsHtml += `
+                        <div class="bg-white p-3 border border-slate-200 rounded-xl mb-2 flex items-start gap-3 shadow-sm">
+                            <p class="flex-1 text-sm text-slate-700 mt-0.5 leading-relaxed">${itemText}</p>
+                            <div class="flex flex-col gap-1 shrink-0">
+                                <button onclick="openEditItem('${secKey}', ${iIndex})" class="p-2 text-slate-400 active:bg-slate-100 rounded-lg transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
+                                </button>
+                                <button onclick="deleteTemplateItem('${secKey}', ${iIndex})" class="p-2 text-rose-400 active:bg-rose-50 rounded-lg transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                sectionDiv.innerHTML = `
+                    <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wide mb-3 ml-1 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+                        ${sec.title}
+                    </h3>
+                    ${itemsHtml}
+                    <button onclick="openEditItem('${secKey}', -1)" class="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-sm font-bold text-slate-500 flex items-center justify-center gap-2 active:bg-slate-100 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        Adicionar Item à ${sec.title}
+                    </button>
+                `;
+                container.appendChild(sectionDiv);
+            });
+            
+            // Botão Restaurar
+            const resetBtn = document.createElement('button');
+            resetBtn.className = "w-full mt-4 py-3.5 bg-slate-200 text-slate-600 font-bold rounded-xl active:bg-slate-300 text-sm transition-colors";
+            resetBtn.innerText = "Restaurar Template Original";
+            resetBtn.onclick = () => {
+                showConfirm("Restaurar Padrão", "Isso apagará suas customizações de template. O histórico salvo não será afetado. Continuar?", () => {
+                    appState.template = JSON.parse(JSON.stringify(DEFAULT_TEMPLATE));
+                    saveTemplate();
+                    renderSettings();
+                });
+            };
+            container.appendChild(resetBtn);
+        }
+
+        function openEditItem(secKey, index) {
+            const input = document.getElementById('input-item-text');
+            document.getElementById('edit-item-section').value = secKey;
+            document.getElementById('edit-item-index').value = index;
+            
+            if (index >= 0) {
+                document.getElementById('edit-item-title').innerText = "Editar Comportamento";
+                input.value = appState.template[secKey].items[index];
+            } else {
+                document.getElementById('edit-item-title').innerText = "Novo Comportamento";
+                input.value = "";
+            }
+            openModal('modal-edit-item');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function saveTemplateItem() {
+            const secKey = document.getElementById('edit-item-section').value;
+            const index = parseInt(document.getElementById('edit-item-index').value);
+            const text = document.getElementById('input-item-text').value.trim();
+
+            if (!text) {
+                showAlert("A descrição do comportamento não pode ficar vazia.");
+                return;
+            }
+
+            if (index >= 0) {
+                appState.template[secKey].items[index] = text;
+            } else {
+                appState.template[secKey].items.push(text);
+            }
+
+            saveTemplate();
+            closeModal('modal-edit-item');
+            renderSettings();
+        }
+
+        function deleteTemplateItem(secKey, index) {
+            showConfirm("Remover Item", "Deseja remover este comportamento do checklist?", () => {
+                appState.template[secKey].items.splice(index, 1);
+                saveTemplate();
+                renderSettings();
+            });
+        }
+
+        function saveTemplate() {
+            localStorage.setItem('bst_template', JSON.stringify(appState.template));
+        }
+
+        window.receberTextoDoKodular = function(texto) {
+            console.log("Recebido do Kodular:", texto);
+        };
+
+        window.handleAndroidBack = function() {
+            // Modais abertos tem prioridade
+            if (document.getElementById('modal-alert').classList.contains('active')) { closeModal('modal-alert'); return; }
+            if (document.getElementById('modal-confirm').classList.contains('active')) { closeModal('modal-confirm'); return; }
+            if (document.getElementById('modal-edit-item').classList.contains('active')) { closeModal('modal-edit-item'); return; }
+            if (document.getElementById('modal-new-record').classList.contains('active')) { closeModal('modal-new-record'); return; }
+
+            // Lógica de telas
+            if (appState.currentScreen === 'checklist') {
+                showConfirm("Sair da Avaliação", "O progresso atual será perdido. Deseja voltar ao início?", () => {
+                    appState.activeSession = null;
+                    navTo('history');
+                });
+                return;
+            }
+            if (appState.currentScreen === 'settings') {
+                navTo('history');
+                return;
+            }
+
+            // Se está no menu principal (History)
+            if (appState.currentScreen === 'history') {
+                if (window.AppInventor && window.AppInventor.setWebViewString) {
+                    window.AppInventor.setWebViewString('VOLTAR_MENU');
+                }
+            }
+        };
+
+        // Initialize on load
+        window.onload = init;
+    </script>
+</body>
+</html>
+```
